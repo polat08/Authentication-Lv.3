@@ -85,8 +85,15 @@ app.get("/logout", (req, res) => {
       res.redirect("/");
   })
 }
-
 )
+app.get("/submit", (req, res) => {
+  if (isAuthenticated()) {
+    res.render("submit.ejs");
+  } else {
+    res.redirect("/login");
+  }
+  
+})
 app.post(
   "/login",
   passport.authenticate("local", {
