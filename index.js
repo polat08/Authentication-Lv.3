@@ -56,14 +56,35 @@ app.get("/logout", (req, res) => {
   });
 });
 
-app.get("/secrets", (req, res) => {
-  // console.log(req.user);
+app.get("/secrets", async (req, res) => {
+  console.log(req.user);
   if (req.isAuthenticated()) {
-    res.render("secrets.ejs");
+    try {
+      const result = await db.query("SELECT secret FROM users WHERE email = $1",
+      [req.user.email]);
+      console.log(result);
+      const secret = result.rows[0].secret;
+      if (secret) {
+        res.render("secrets.ejs", { secret: secret});
+      } else {
+        res.render("secrets.ejs", { secret: "You should submit a secret." });
+      }
+    } catch (err) {
+      console.log(err)
+    }
   } else {
     res.redirect("/login");
   }
 });
+
+app.get("/submit", function (req, res) {
+  if (req.isAuthenticated()) {
+    res.render("submit.ejs");
+  } else {
+    res.redirect("/login");
+  }
+});
+
 app.get(
   "/auth/google",
    passport.authenticate("google", {
@@ -73,27 +94,12 @@ app.get(
 
 app.get(
   "/auth/google/secrets",
-   passport.authenticate("google", {
+passport.authenticate("google", {
   successRedirect: "/secrets",
   failureRedirect: "/login",
 })
 );
 
-app.get("/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) console.log(err);
-      res.redirect("/");
-  })
-}
-)
-app.get("/submit", (req, res) => {
-  if (isAuthenticated()) {
-    res.render("submit.ejs");
-  } else {
-    res.redirect("/login");
-  }
-  
-})
 app.post(
   "/login",
   passport.authenticate("local", {
@@ -112,7 +118,7 @@ app.post("/register", async (req, res) => {
     ]);
 
     if (checkResult.rows.length > 0) {
-      req.redirect("/login");
+      res.redirect("/login");
     } else {
       bcrypt.hash(password, saltRounds, async (err, hash) => {
         if (err) {
@@ -130,6 +136,18 @@ app.post("/register", async (req, res) => {
         }
       });
     }
+  } catch (err) {
+    console.log(err);
+  }
+});
+
+app.post("/submit", async (req, res) => {
+  const submittedSecret = req.body.secret;
+  console.log(req.user);
+
+  try {
+    await db.query("UPDATE users SET secret = $1 WHERE email = $2", [submittedSecret, req.user.email,]);
+    res.redirect("/secrets")
   } catch (err) {
     console.log(err);
   }
